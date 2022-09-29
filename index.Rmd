@@ -1,0 +1,123 @@
+---
+title: "HWK2"
+author: "shannon jaskiewicz"
+date: '2022-09-29'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+**Looking at the Boston dataset from the MASS package in R---examining crime rate as a function of various predictors:**  
+
+
+zn---proportion of residential land zoned for lots < 25k sqft
+indus---proportion of non-retail business acres per town
+rm---avg num rooms per dwelling
+age---proportion of owner-occupied units built before 1940
+dis---weighted mean of distances to 5 Boston job centers
+rad---index of accessibility to radial highways
+ptratio---pupil-teacher ratio
+lstat---lower socioeconomic status
+medv---median value of owner-occupied homes in thousands of dollars
+
+
+**Getting a correlation plot**
+
+```{r, warning = FALSE, message = FALSE}
+
+library(tidyverse)
+library(corrplot)
+library(plotly)
+library(htmlwidgets)
+library(heatmaply)
+library(MASS)
+
+# help(Boston)
+
+
+boston <- Boston[-c(4,5,10,12)]
+boston.htmplycor <- heatmaply_cor(
+  cor(boston),
+  symm = TRUE,
+  dendrogram = "none"
+)
+boston.htmplycor
+```
+
+
+**Linear regression with crime rate as the outcome variable**
+
+```{r}
+lm.boston <- lm(crim ~ ., data = boston)
+summary(lm.boston)
+# confint(lm.boston)
+# coef(lm.boston)
+results <- data.frame(confint(lm.boston),coef(lm.boston))
+colnames(results) = c("Lower CI", "Upper CI", "Estimate")
+results2 <- results[-1,]
+results2$name <- substr(rownames(results2), 1,9)
+results2$sig <- (results2$`Lower CI` > 0 | results2$`Upper CI` < 0)
+results2
+```
+
+
+**Making the ggplot**
+
+```{r}
+boston.ggp <- ggplot(results2,
+                     aes(x = Estimate,
+                         y = name,
+                         xmin = `Lower CI`,
+                         xmax = `Upper CI`,
+                         color = sig)) +
+  geom_vline(xintercept = 0,
+             color = "black",
+             linetype = 2) +
+  geom_errorbarh(height = 0.25) +
+  geom_point() +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(),
+        legend.position = "none") +
+  #scale_x_continuous(breaks = seq(-21,2,0.1)) +
+  scale_color_manual(values = c("black","red"))
+# boston.ggp
+```
+
+
+**Converting it to plotly**
+
+```{r}
+boston.ggp.plotly <- ggplotly(boston.ggp, tooltip = c("Lower CI", "Estimate", "Upper CI"))
+boston.ggp.plotly
+```
+
+
+
+**Combining the 2 plots, side by side, into 1 plot **
+
+```{r, fig.width = 10, fig.height = 5, warning = FALSE}
+boston.htmplycor2 <- boston.htmplycor %>%
+  layout(
+    yaxis = list(showticklabels = FALSE)
+  )
+boston.combo <- subplot(list(boston.ggp.plotly,boston.htmplycor2),
+                       margin = 0.03,
+                       nrows = 1,
+                       widths = c(0.5,0.5))
+boston.combo
+```
+
+
+
+
+**Saving the plot**
+
+```{r}
+
+saveWidget(as_widget(boston.combo), "boston.combo.html")
+save(boston.combo, file="boston.combo.rda")
+```
+
